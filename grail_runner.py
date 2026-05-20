@@ -258,3 +258,98 @@ async def run_grail_flow(
         final_url=page.url,
         handle=handle,
     )
+
+async def claim_x_follow(ctx: BrowserContext) -> bool:
+    """Клеймит 25 очков за фолловинг @fcgrails.
+
+    1. Перехватывает сетевые запросы на /pass чтобы найти реальный API endpoint.
+    2. Ищет кнопку Verify/Claim и кликает её.
+    3. Если кнопка сделала POST — повторяем этот же запрос напрямую.
+    """
+    pages = ctx.pages
+    page = pages[0] if pages else await ctx.new_page()
+
+    captured_requests: list[str] = []
+
+    def _on_request(req) -> None:
+        url = req.url
+        method = req.method
+        if "grails.fancraze.com/api" in url and method in ("POST", "PUT", "PATCH"):
+            captured_requests.append(f"{method} {url}")
+            log.debug("captured API: %s %s", method, url)
+
+    page.on("request", _on_request)
+
+    try:
+        await page.goto("https://grails.fancraze.com/pass",
+                        wait_until="domcontentloaded", timeout=25000)
+        await asyncio.sleep(3)
+
+        log.info("/pass loaded, url=%s", page.url)
+
+        # Ищем кнопки Verify/Claim/Follow на странице
+        claim_candidates = [
+            page.get_by_role("button", name="Follow on X", exact=False),  # реальная кнопка
+            page.get_by_role("button", name="Verify", exact=False),
+            page.get_by_role("button", name="Claim", exact=False),
+            page.get_by_role("button", name="Follow", exact=False),
+            page.locator('button:has-text("Follow on X")'),
+            page.locator('button:has-text("Verify")'),
+            page.locator('button:has-text("Claim")'),
+            page.locator('button:has-text("25")'),
+        ]
+        for loc in claim_candidates:
+            try:
+                target = loc.first
+                if await target.is_visible(timeout=2000):
+                    btn_text = await target.inner_text(timeout=1000)
+                    log.info("found claim button: %r, clicking...", btn_text[:40])
+                    await target.click(timeout=6000)
+                    await asyncio.sleep(3)
+                    # Проверяем что запрос был сделан
+                    if captured_requests:
+                        log.info("after click captured: %s", captured_requests[-1])
+                        return True
+            except Exception:
+                continue
+
+        # Если кнопку не нашли, пробуем прямые API endpoints
+        known_endpoints = [
+            "/api/tasks/x-follow",      # реальный endpoint (найден 2026-05-21)
+            "/api/boosts/x-follow",
+            "/api/boosts/xFollow",
+            "/api/follow/claim",
+        ]
+        for endpoint in known_endpoints:
+            try:
+                resp = await page.request.post(
+                    f"https://grails.fancraze.com{endpoint}",
+                    headers={"Content-Type": "application/json"},
+                    data="{}",
+                )
+                log.info("tried %s -> %d", endpoint, resp.status)
+                if resp.status in (200, 201, 204):
+                    log.info("xFollow claim OK via %s", endpoint)
+                    return True
+                if resp.status in (400, 409):
+                    # 400/409 может означать "already claimed"
+                    try:
+                        body = await resp.json()
+                        log.info("claim %s -> %d body=%s", endpoint, resp.status, str(body)[:100])
+                        if "already" in str(body).lower() or "claimed" in str(body).lower():
+                            return True
+                    except Exception:
+                        pass
+                if resp.status == 404:
+                    continue
+            except Exception as e:
+                log.debug("claim %s error: %s", endpoint, e)
+
+        if captured_requests:
+            log.info("all captured API calls: %s", captured_requests)
+        else:
+            log.warning("xFollow claim: no claim button found and no known endpoint worked")
+    finally:
+        page.remove_listener("request", _on_request)
+
+    return False

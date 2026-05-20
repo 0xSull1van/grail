@@ -16,7 +16,8 @@
       "Bash(xargs grep -l \"auth_token=\\\\|password\\\\|miqjjlca\\\\|hirox\\\\|hnx427\")",
       "Bash(git -c user.email=\"0xsullivan@users.noreply.github.com\" -c user.name=\"0xSull1van\" commit -m \"security: replace real credentials with placeholders in sample files\")",
       "Bash(git checkout *)",
-      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'grail-bot: Twitter OAuth auto-registration + follow *)"
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'grail-bot: Twitter OAuth auto-registration + follow *)",
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'feat: xFollow claim работает \\(POST /api/tasks/x-follow\\) *)"
     ]
   }
 }

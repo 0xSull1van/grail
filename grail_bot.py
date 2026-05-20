@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from accounts_loader import Account, load_accounts
-from grail_runner import GrailFlowError, GrailResult, run_grail_flow
+from grail_runner import GrailFlowError, GrailResult, run_grail_flow, claim_x_follow
 from twitter_client import TwitterLoginError
 from twitter_session import authenticate, follow_handle
 
@@ -120,6 +120,7 @@ class RowResult:
     grail_final_url: str
     handle: str | None
     follow_ok: bool
+    xfollow_claimed: bool
     error: str | None
     started_at: str
     finished_at: str
@@ -149,6 +150,7 @@ async def process_account(
     twitter_ok = False
     grail_res = GrailResult(False, False, "", None)
     follow_ok = False
+    xfollow_claimed = False
 
     if sess is None:
         err = f"no {mode}-mode data on account"
@@ -156,7 +158,7 @@ async def process_account(
         return RowResult(
             idx=idx, login_hint=account.login_hint, proxy=proxy,
             twitter_ok=False, grail_x_connected=False, grail_email_submitted=False,
-            grail_final_url="", handle=None, follow_ok=False, error=err,
+            grail_final_url="", handle=None, follow_ok=False, xfollow_claimed=False, error=err,
             started_at=started_at,
             finished_at=datetime.now(timezone.utc).isoformat(),
         )
@@ -196,6 +198,13 @@ async def process_account(
             except Exception as e:
                 err = (err + "; " if err else "") + f"follow: {e}"
                 log.error("[%d] follow failed: %s", idx, e)
+
+        if grail_res.x_connected and ctx is not None:
+            try:
+                xfollow_claimed = await claim_x_follow(ctx)
+                log.info("[%d] xfollow_claim -> %s", idx, xfollow_claimed)
+            except Exception as e:
+                log.warning("[%d] xfollow_claim error: %s", idx, e)
     except Exception as e:
         err = (err + "; " if err else "") + f"unhandled: {e}"
         log.exception("[%d] unhandled error", idx)
@@ -217,6 +226,7 @@ async def process_account(
         grail_final_url=grail_res.final_url,
         handle=grail_res.handle,
         follow_ok=follow_ok,
+        xfollow_claimed=xfollow_claimed,
         error=err,
         started_at=started_at,
         finished_at=finished_at,
@@ -232,7 +242,7 @@ def append_csv(path: Path, row: RowResult) -> None:
             w.writerow([
                 "idx", "login_hint", "proxy", "twitter_ok",
                 "grail_x_connected", "grail_email_submitted",
-                "grail_final_url", "handle", "follow_ok",
+                "grail_final_url", "handle", "follow_ok", "xfollow_claimed",
                 "error", "started_at", "finished_at",
             ])
         w.writerow([
@@ -241,7 +251,7 @@ def append_csv(path: Path, row: RowResult) -> None:
             int(row.grail_x_connected),
             int(row.grail_email_submitted),
             row.grail_final_url, row.handle or "",
-            int(row.follow_ok),
+            int(row.follow_ok), int(row.xfollow_claimed),
             row.error or "",
             row.started_at, row.finished_at,
         ])
