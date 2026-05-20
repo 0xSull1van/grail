@@ -1,0 +1,4 @@
+# По одной почте на строку. Маппинг 1:1 с accounts.txt по индексу строки.
+# Используется только при email.strategy = "from_file" в config.toml.
+acc1@gmail.com
+acc2@protonmail.com

@@ -1,0 +1,29 @@
+# секреты не коммитим
+accounts.txt
+proxies.txt
+emails.txt
+
+# артефакты прогона
+profiles/
+results.csv
+grail-bot.log
+*.log
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# playwright/patchright debug-снимки
+.playwright-mcp/
+
+# debug screenshots c PII
+debug-shots/
+# oxylabs/webshare credentials
+proxies_oxylabs*.txt
+
+test_profile_del/

@@ -1,0 +1,51 @@
+# Конфиг grail-бота.
+# Меняй значения под себя — править код не нужно.
+
+[targets]
+# Хендл который должны зафолловить аккаунты после реги.
+# Без @, без https://x.com/.
+follow_handle = "fcgrails"
+
+# URL grail-сайта. Меняй только если они переедут.
+grail_url = "https://grails.fancraze.com/connect"
+
+[timing]
+# Задержка между аккаунтами (секунды). Пользователь просил 3 мин.
+delay_between_accounts_sec = 180
+
+# Задержка ПОСЛЕ успешной OAuth-авторизации перед переходом к фоллову.
+post_oauth_settle_sec = 4
+
+# Таймаут на сам OAuth-redirect c x.com → grail callback.
+oauth_callback_timeout_sec = 45
+
+[browser]
+# headless=false — видишь весь процесс в окне Chrome. true — без UI.
+headless = false
+
+# Папка с профилями Chrome (один профиль на твиттер-акк → куки не пересекаются).
+profiles_dir = "./profiles"
+
+[files]
+accounts_file = "accounts.txt"
+proxies_file = "proxies.txt"  # Webshare proxies (работают). Oxylabs expired (407)
+results_csv = "results.csv"
+log_file = "grail-bot.log"
+
+[email]
+# Что делать на шаге "введите email".
+# - "skip"            : не заполнять email
+# - "auto_username"   : <twitter_login>+grail@<auto_domain>
+# - "from_file"       : читать emails.txt построчно (1:1 с accounts)
+strategy = "auto_username"
+
+# Файл с почтами для strategy = "from_file".
+file = "emails.txt"
+
+# Домен для auto_username.
+auto_domain = "gmail.com"
+
+[follow]
+# После реги — фолловить целевой хендл.
+enabled = true
+profile_load_timeout_sec = 25

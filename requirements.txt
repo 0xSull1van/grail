@@ -1,0 +1,2 @@
+patchright>=1.49.0
+aioimaplib>=1.0.1

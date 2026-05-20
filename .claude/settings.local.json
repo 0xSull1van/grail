@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "Bash(xargs grep -l \"proxy\\\\|proxy_url\\\\|socks\\\\|http://\")",
+      "Bash(git add *)",
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'fix: cred-mode login работает *)",
+      "Bash(git push *)",
+      "Bash(git rm *)",
+      "Bash(git -c user.email=\"0xsullivan@users.noreply.github.com\" -c user.name=\"0xSull1van\" commit -m \"chore: remove test chrome profile, add to gitignore\")",
+      "Bash(taskkill /F /IM chrome.exe)",
+      "Bash(taskkill /F /IM \"chrome.exe\")",
+      "Bash(powershell *)",
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'fix: navigate directly to /api/auth/x/start instead of clicking link *)",
+      "Bash(xargs grep -l \"auth_token=\\\\|password\\\\|miqjjlca\\\\|hirox\\\\|hnx427\")",
+      "Bash(git -c user.email=\"0xsullivan@users.noreply.github.com\" -c user.name=\"0xSull1van\" commit -m \"security: replace real credentials with placeholders in sample files\")",
+      "Bash(git checkout *)",
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'grail-bot: Twitter OAuth auto-registration + follow *)"
+    ]
+  }
+}
