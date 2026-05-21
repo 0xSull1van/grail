@@ -1,155 +1,138 @@
 # grail-bot
 
-Прогоняет твиттер-акки через регу на grails.fancraze.com и фолловит указанный X-аккаунт.
-Логин в твиттер идёт через куки (auth_token), браузер крутится на patchright (форк
-playwright против анти-бота x.com), на каждый акк свой прокси и свой Chrome-профиль.
+Прогоняет твиттер-акки через регу на grails.fancraze.com:
+1. Логин в твиттер (login+pass через challenge IMAP / phone)
+2. Connect X через OAuth + Authorize
+3. Email шаг + landing на /pass
+4. Follow @fcgrails
+5. Клейм 25 очков за follow на /pass странице
+6. Случайная задержка 40-80 мин и следующий акк
 
-## Что делает
-
-1. Берёт строку из accounts.txt, выдёргивает auth_token, цепляет прокси из proxies.txt
-   (по индексу строки)
-2. Поднимает Chrome через patchright с этим прокси, ставит auth_token на .x.com,
-   проверяет что сессия твиттера живая
-3. Открывает https://grails.fancraze.com/connect, жмёт Connect X
-4. На x.com/oauth2/authorize жмёт Authorize app
-5. Дожидается возврата на grails.fancraze.com (callback c кодом)
-6. Если grail просит email, заполняет его (по дефолту генерит из логина:
-   foo+grail0@gmail.com)
-7. Идёт на x.com/<follow_handle> и фолловит
-8. Закрывает браузер, пишет строку в results.csv, ждёт 180 секунд, берёт следующий акк
+Система рефералов: каждый код используется 5-10 акков, потом ротация. После каждой
+успешной реги новый код этого акка тянется через `/api/me` и добавляется в пул.
 
 ## Установка
 
-Нужен Python 3.11+ и установленный Chrome (обычный, не Chromium).
+Нужен Python 3.11+ и установленный Chrome.
 
 ```
 pip install -r requirements.txt
 patchright install chrome
 ```
 
-Вторая команда докачивает Chrome-stealth-патчи. Если уже стоит обычный Chrome,
-patchright использует его (channel="chrome" в коде).
-
 ## Настройка
 
-Открыть config.toml. Минимум поменять:
+1. `config.toml` — основные параметры (handle для фоллова, тайминги, режим email)
+2. `referrals.local.toml` (создать самому, в gitignore) — твой базовый реф-код:
 
-- `follow_handle` — кого фолловить (по дефолту fcgrails)
-- `delay_between_accounts_sec` — пауза между акками (по дефолту 180 секунд)
-- `headless` — false если хочешь видеть окно браузера, true в фоне
-- `email.strategy`:
-  - `skip` — не заполнять email на 2-м шаге (рега будет неполной)
-  - `auto_username` — собирать из логина: `<login>+grail<idx>@gmail.com`
-  - `from_file` — читать построчно emails.txt
-
-## Формат accounts.txt
-
-Принимает три варианта, авто-детект:
-
-1. Голый токен:
-```
-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+```toml
+[referrals]
+base_code = "TWOIREFKOD"
 ```
 
-2. Cookie-строка:
+3. `accounts.txt` — твиттер-акки. Собирается через `build_accounts.py` из исходников
+   в evm проекте, или клади свои строки:
+
 ```
-auth_token=a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-auth_token=db056bc...; ct0=82f3...
+# Формат cred-mode (login:pass:email:emailpass:phone:country:date:tweets:subs:auth_token=XXX)
+mylogin:mypass:mail@gmail.com:mailpass:71234567890:us:01.01.2024:0:0:auth_token=abc...
+
+# Формат cookie-mode (только auth_token)
+auth_token=abc...
+auth_token=abc...; ct0=def...
+
+# Любой формат + TAB + proxy
+auth_token=abc...	http://user:pass@host:port
 ```
 
-3. Вендорский формат из evm/newtwitters.txt (поддерживается из коробки):
-```
-mylogin:mypassword:71234567890:us:01.01.2024:0:0:auth_token=a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-```
-
-В любом из вариантов можно после TAB указать прокси прямо в строке акка, тогда
-proxies.txt можно вообще не трогать:
-```
-auth_token=db056bc...\thttp://user:pass@1.2.3.4:8080
-```
-
-## Формат proxies.txt
-
-Поддерживаемые форматы строк:
-
-1. Webshare-стиль (как из админки выгружается):
-```
-1.2.3.4:6195:proxyuser:proxypassword
-```
-
-2. URL с протоколом:
-```
-http://user:pass@1.2.3.4:8080
-```
-
-Прокси привязывается к аккам по индексу строки. Если прокси меньше чем акков,
-циклится с начала.
+4. `proxies.txt` — прокси (опционально). Формат Webshare `ip:port:user:pass` или
+   `http://user:pass@host:port`. Маппинг 1:1 по индексу акка.
 
 ## Запуск
 
 ```
-python grail_bot.py
+# Все оставшиеся акки начиная с индекса N
+python grail_bot.py --mode cred --start 45 --no-proxy --skip-delay-on-fail
+
+# Только N акков для теста
+python grail_bot.py --mode cred --start 45 --limit 5 --no-proxy --skip-delay-on-fail
+
+# Через прокси (Webshare datacenter в proxies.txt)
+python grail_bot.py --mode cred --start 45 --skip-delay-on-fail
+
+# Своя проксь
+python grail_bot.py --mode cred --start 45 --proxies-file my_proxies.txt --skip-delay-on-fail
+
+# Только парсинг + проверка пула рефов, без браузера
+python grail_bot.py --dry-run --start 45 --limit 5
 ```
 
 Опции:
+- `--mode cred|cookie|auto` — cred логинится по логину+паролю, cookie ставит куки
+- `--start N` — начать с какого индекса (0-based)
+- `--limit N` — сколько обработать (0 = все)
+- `--no-proxy` — игнорировать прокси
+- `--proxies-file path` — свой proxy-файл
+- `--skip-delay-on-fail` — не ждать 40-80 мин если twitter_ok=False
+- `--dry-run` — парсинг без браузера
+
+## Проверка результатов
 
 ```
-python grail_bot.py --start 5         # начать с 6-го акка (skip 0..4)
-python grail_bot.py --limit 3         # обработать только 3 акка
-python grail_bot.py --start 5 --limit 1   # один акк, индекс 5
-python grail_bot.py --dry-run         # парсинг + лог, без браузера
+python check_results.py             # таблица всех акков
+python check_results.py --summary   # только итоговые цифры
+python check_results.py --ok        # только успешные
+python check_results.py --failed    # только провалившиеся
 ```
 
-## Результаты
+## Сбор accounts.txt из исходников evm-проекта
 
-После каждого акка дописывается строка в results.csv. Колонки:
+```
+python build_accounts.py           # дефолт: Order + work1 + work2 = 125
+python build_accounts.py --list    # счётчики по каждому файлу
+python build_accounts.py --all     # все 5 файлов (195 уникальных)
+python build_accounts.py --sources cookies.txt work1.txt  # custom набор
+```
 
-- idx, login_hint, proxy
-- twitter_ok — пустили ли куки на /home
-- grail_x_connected — дошли ли до callback после Authorize
-- grail_email_submitted — заполнили ли email
-- grail_final_url — где остановились
-- handle — твиттер-хендл если grail его отрисовал
-- follow_ok — кликнули ли Follow (или уже были подписаны)
-- error — что упало, если упало
-- started_at, finished_at
+## Где смотреть что происходит
 
-Полный лог пишется в grail-bot.log.
+- `grail-bot.log` — полный лог выполнения (все шаги + ошибки)
+- `results.csv` — результат каждого акка построчно (CSV)
+- `referrals.json` — текущее состояние пула рефералов (gitignored)
+- `profiles/acc-XXX/` — Chrome-профили на каждый акк (cookies сохраняются)
+- `debug-shots/` — скриншоты при таймаутах (gitignored)
+
+## Структура CSV results.csv
+
+| колонка | значение |
+|---|---|
+| idx | индекс акка в accounts.txt |
+| login_hint | логин акка |
+| proxy | использованный прокси |
+| mode_used | cred / cookie / none |
+| twitter_ok | 1 = залогинились в твиттер |
+| grail_x_connected | 1 = прошёл OAuth на grail |
+| grail_email_submitted | 1 = ввёл email |
+| grail_final_url | где остановился (/pass = успех) |
+| handle | твиттер-хендл от grail |
+| follow_ok | 1 = подписан на @fcgrails |
+| xfollow_claimed | 1 = заклеймил 25 очков |
+| ref_used | реф-код, по которому регался этот акк |
+| new_ref_code | реф-код этого акка для будущих регов |
+| error | если упал — что упало |
 
 ## Что может пойти не так
 
-`twitter auth: X session check timed out` — куки протухли или прокси флагнут.
-Замени токен или прокси.
-
-`Connect X button not found on /connect` — grail обновил вёрстку. Открой /connect
-руками, найди новую ссылку, поправь селектора в grail_runner.py
-(функция run_grail_flow, секция connect_link_candidates).
-
-`Authorize button not found` — x.com OAuth страница не загрузилась или прокси
-завис. Проверь что прокси резидентный (с дата-центров x.com часто ловит Arkose
-и не показывает Authorize, а сразу challenge).
-
-`OAuth callback never returned to grail` — x.com отдал ошибку или редирект увёл
-не туда. Запусти с `headless = false`, посмотри что на экране.
-
-## Структура проекта
-
-```
-config.toml          конфиг
-accounts.txt         токены твиттер-акков
-proxies.txt          прокси
-emails.txt           опционально, если strategy = "from_file"
-grail_bot.py         CLI и оркестрация
-twitter_client.py    логин в твиттер через куки + follow
-grail_runner.py      клики по grail-шагам
-accounts_loader.py   парсер accounts.txt и proxies.txt
-profiles/            Chrome-профили (создаётся автоматически, не коммитить)
-results.csv          результаты прогона
-grail-bot.log        полный лог
-```
+- `code 399` — Twitter anti-fraud. Акк или IP флагнут. Чаще на старых акках из
+  high-risk стран (Индия, Эфиопия, Танзания).
+- `account/access challenge` — Cloudflare challenge от Twitter на datacenter
+  proxy. Используй residential или без прокси.
+- `cookies did not authenticate` — куки протухли. Перейди в cred-mode.
+- `Connect X button not found` — после успешной реги акк уже зарегистрирован,
+  /connect показывает другое.
 
 ## Безопасность
 
-В репо не клади accounts.txt и proxies.txt с реальными токенами. В .gitignore они
-уже исключены. Залить можно sample-файлы (accounts.sample.txt и proxies.sample.txt)
-с одной строкой-примером.
+В gitignore: `accounts.txt`, `proxies.txt`, `referrals.json`, `referrals.local.toml`,
+`results.csv`, `profiles/`, `debug-shots/`, `grail-bot.log`. Реальные акки и реф-коды
+в репо не попадают.

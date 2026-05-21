@@ -58,6 +58,12 @@ class Config:
 def load_config(path: Path) -> Config:
     raw = tomllib.loads(path.read_text(encoding="utf-8"))
     base = path.parent.resolve()
+    # Локальный override (gitignored) — содержит base_code и прочие персональные настройки
+    local_path = base / "referrals.local.toml"
+    if local_path.exists():
+        local_raw = tomllib.loads(local_path.read_text(encoding="utf-8"))
+        for section, vals in local_raw.items():
+            raw.setdefault(section, {}).update(vals)
     return Config(
         follow_handle=raw["targets"]["follow_handle"],
         grail_url=raw["targets"]["grail_url"],

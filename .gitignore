@@ -30,3 +30,6 @@ test_profile_del/
 
 # Реферальный пул - персональные данные
 referrals.json
+
+# Локальный конфиг с реф-кодом
+referrals.local.toml

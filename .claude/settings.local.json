@@ -20,7 +20,9 @@
       "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'feat: xFollow claim работает \\(POST /api/tasks/x-follow\\) *)",
       "Bash(git -c user.email=\"0xsullivan@users.noreply.github.com\" -c user.name=\"0xSull1van\" commit -m \"add check_results.py — проверка какие акки прошли\")",
       "Bash(grep -nA2 \"int\\(row.follow_ok\\)\" \"N:/Base/Projects/grail/grail_bot.py\")",
-      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'feat: referral pool + random delay 40-80min *)"
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'feat: referral pool + random delay 40-80min *)",
+      "Bash(git -c user.email=\"0xsullivan@users.noreply.github.com\" -c user.name=\"0xSull1van\" commit -m \"chore: ignore referrals.json \\(персональные коды\\)\")",
+      "Bash(git -c user.email=0xsullivan@users.noreply.github.com -c user.name=0xSull1van commit -m 'docs: README с реферальной системой + sanitize config *)"
     ]
   }
 }
