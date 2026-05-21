@@ -10,6 +10,9 @@ follow_handle = "fcgrails"
 grail_url = "https://grails.fancraze.com/connect"
 
 [timing]
+# Рандомная задержка между акками (секунды). Min..max.
+delay_min_sec = 2400  # 40 мин
+delay_max_sec = 4800  # 80 мин
 # Задержка между аккаунтами (секунды). Пользователь просил 3 мин.
 delay_between_accounts_sec = 180
 
@@ -49,3 +52,16 @@ auto_domain = "gmail.com"
 # После реги — фолловить целевой хендл.
 enabled = true
 profile_load_timeout_sec = 25
+
+
+[referrals]
+# Базовый код пользователя. С него начинается пул, потом туда добавляются коды
+# успешно зарегистрированных акков.
+base_code = "V38EYQ9"
+
+# Сколько раз использовать каждый код (рандом из этого диапазона).
+min_uses = 5
+max_uses = 10
+
+# Файл стейта пула. Сохраняется между запусками.
+state_file = "referrals.json"

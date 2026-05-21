@@ -30,6 +30,7 @@ class GrailResult:
     email_submitted: bool
     final_url: str
     handle: str | None
+    new_referral_code: str | None = None  # код самого этого акка для использования будущими регами
 
 
 async def _click_first_visible(page: Page, locators, timeout_each_ms: int = 6000) -> bool:
@@ -169,20 +170,31 @@ async def run_grail_flow(
     ctx: BrowserContext,
     grail_url: str,
     email: str | None,
+    referral_code: str | None = None,
     oauth_callback_timeout_sec: float = 45.0,
     post_oauth_settle_sec: float = 4.0,
 ) -> GrailResult:
     pages = ctx.pages
     page = pages[0] if pages else await ctx.new_page()
 
-    log.info("opening grail /connect: %s", grail_url)
-    await page.goto(grail_url, wait_until="domcontentloaded", timeout=30000)
+    # Если есть реферал — открываем /connect с ?ref=CODE чтобы фронт положил
+    # код в localStorage. Параллельно прокидываем ?ref= в OAuth start — backend
+    # читает оттуда.
+    url_with_ref = grail_url
+    if referral_code:
+        sep = "&" if "?" in grail_url else "?"
+        url_with_ref = f"{grail_url}{sep}ref={referral_code}"
+    log.info("opening grail /connect: %s (ref=%s)", url_with_ref, referral_code)
+    await page.goto(url_with_ref, wait_until="domcontentloaded", timeout=30000)
     await asyncio.sleep(2)
     log.info("grail page loaded, url=%s title=%s", page.url, await page.title())
 
     # Вместо клика по ссылке — навигируем прямо на start URL.
     # React может не отдавать clickable-link после гидрации, поэтому прямой goto надёжнее.
-    start_url = grail_url.rstrip("/").rsplit("/", 1)[0] + "/api/auth/x/start"
+    base = grail_url.rstrip("/").rsplit("/", 1)[0]
+    start_url = f"{base}/api/auth/x/start"
+    if referral_code:
+        start_url += f"?ref={referral_code}"
     log.info("navigating directly to OAuth start: %s", start_url)
     try:
         await page.goto(start_url, wait_until="domcontentloaded", timeout=30000)
@@ -252,11 +264,25 @@ async def run_grail_flow(
         if page.url == cur_url:
             break
 
+    # Вытягиваем referralCode этого акка через /api/me — добавится в пул для будущих регов
+    new_ref: str | None = None
+    if x_connected:
+        try:
+            resp = await page.request.get("https://grails.fancraze.com/api/me", timeout=10000)
+            if resp.status == 200:
+                me = await resp.json()
+                new_ref = (me.get("profile") or {}).get("referralCode")
+                if new_ref:
+                    log.info("got new referral code: %s", new_ref)
+        except Exception as e:
+            log.warning("could not fetch /api/me: %s", e)
+
     return GrailResult(
         x_connected=x_connected,
         email_submitted=email_submitted,
         final_url=page.url,
         handle=handle,
+        new_referral_code=new_ref,
     )
 
 async def claim_x_follow(ctx: BrowserContext) -> bool:

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import random
 import csv
 import logging
 import sys
@@ -22,6 +23,7 @@ from accounts_loader import Account, load_accounts
 from grail_runner import GrailFlowError, GrailResult, run_grail_flow, claim_x_follow
 from twitter_client import TwitterLoginError
 from twitter_session import authenticate, follow_handle
+from referrals_manager import ReferralManager
 
 
 log = logging.getLogger("grail-bot")
@@ -45,6 +47,12 @@ class Config:
     email_auto_domain: str
     follow_enabled: bool
     follow_timeout_sec: float
+    base_referral_code: str | None
+    ref_min_uses: int
+    ref_max_uses: int
+    delay_min_sec: int
+    delay_max_sec: int
+    referrals_state_file: Path
 
 
 def load_config(path: Path) -> Config:
@@ -67,6 +75,12 @@ def load_config(path: Path) -> Config:
         email_auto_domain=raw["email"].get("auto_domain", "gmail.com"),
         follow_enabled=bool(raw["follow"]["enabled"]),
         follow_timeout_sec=float(raw["follow"].get("profile_load_timeout_sec", 25)),
+        base_referral_code=raw.get("referrals", {}).get("base_code") or None,
+        ref_min_uses=int(raw.get("referrals", {}).get("min_uses", 5)),
+        ref_max_uses=int(raw.get("referrals", {}).get("max_uses", 10)),
+        delay_min_sec=int(raw.get("timing", {}).get("delay_min_sec", 2400)),
+        delay_max_sec=int(raw.get("timing", {}).get("delay_max_sec", 4800)),
+        referrals_state_file=(base / raw.get("referrals", {}).get("state_file", "referrals.json")).resolve(),
     )
 
 
@@ -252,6 +266,7 @@ def append_csv(path: Path, row: RowResult) -> None:
             int(row.grail_email_submitted),
             row.grail_final_url, row.handle or "",
             int(row.follow_ok), int(row.xfollow_claimed),
+            row.ref_used or "", row.new_ref_code or "",
             row.error or "",
             row.started_at, row.finished_at,
         ])
@@ -297,24 +312,41 @@ async def main_async(args: argparse.Namespace) -> int:
 
     log.info("will process accounts [%d..%d) of %d", start_idx, end_idx, len(accounts))
 
+    ref_mgr = ReferralManager(
+        state_file=cfg.referrals_state_file,
+        base_code=cfg.base_referral_code,
+        min_uses=cfg.ref_min_uses,
+        max_uses=cfg.ref_max_uses,
+    )
+    log.info("referrals: %s", ref_mgr.stats())
+
     for i in range(start_idx, end_idx):
         acc = accounts[i]
         email = derive_email(acc, i, cfg, emails_from_file)
-        log.info("=== account %d/%d  email=%s ===", i + 1, end_idx, email)
+        ref_for_this = ref_mgr.next_code()
+        log.info("=== account %d/%d  hint=%s email=%s ref=%s ===",
+                 i + 1, end_idx, acc.login_hint, email, ref_for_this)
 
         if args.dry_run:
-            log.info("[%d] dry-run: skipping full flow", i)
+            log.info("[%d] dry-run: would process %s ref=%s",
+                     i, acc.login_hint, ref_for_this)
             continue
 
-        result = await process_account(i, acc, cfg, email, args.mode)
+        result = await process_account(i, acc, cfg, email, args.mode, ref_code=ref_for_this)
         append_csv(cfg.results_csv, result)
+
+        if result.grail_x_connected and ref_for_this:
+            ref_mgr.mark_used(ref_for_this)
+        if result.new_ref_code:
+            ref_mgr.add_new(result.new_ref_code)
 
         if i + 1 < end_idx:
             if args.skip_delay_on_fail and not result.twitter_ok:
-                log.info("twitter_ok=False, skipping delay (--skip-delay-on-fail)")
+                log.info("twitter_ok=False, skipping delay")
                 continue
-            delay = cfg.delay_between_accounts_sec
-            log.info("sleeping %d sec before next account", delay)
+            delay = random.randint(cfg.delay_min_sec, cfg.delay_max_sec)
+            log.info("sleeping %d sec (%.1f min) before next account",
+                     delay, delay / 60)
             await asyncio.sleep(delay)
 
     log.info("done")
