@@ -156,7 +156,8 @@ def _pick_session(account: Account, mode: str):
 
 
 async def process_account(
-    idx: int, account: Account, cfg: Config, email: str | None, mode: str
+    idx: int, account: Account, cfg: Config, email: str | None, mode: str,
+    ref_code: str | None = None,
 ) -> "RowResult":
     started_at = datetime.now(timezone.utc).isoformat()
     proxy = account.proxy_url
@@ -178,7 +179,8 @@ async def process_account(
         return RowResult(
             idx=idx, login_hint=account.login_hint, proxy=proxy,
             twitter_ok=False, grail_x_connected=False, grail_email_submitted=False,
-            grail_final_url="", handle=None, follow_ok=False, xfollow_claimed=False, error=err,
+            grail_final_url="", handle=None, follow_ok=False, xfollow_claimed=False,
+            ref_used=ref_code, new_ref_code=None, error=err,
             started_at=started_at,
             finished_at=datetime.now(timezone.utc).isoformat(),
         )
@@ -197,6 +199,7 @@ async def process_account(
                     ctx,
                     grail_url=cfg.grail_url,
                     email=email,
+                    referral_code=ref_code,
                     oauth_callback_timeout_sec=cfg.oauth_callback_timeout_sec,
                     post_oauth_settle_sec=cfg.post_oauth_settle_sec,
                 )
@@ -247,6 +250,8 @@ async def process_account(
         handle=grail_res.handle,
         follow_ok=follow_ok,
         xfollow_claimed=xfollow_claimed,
+        ref_used=ref_code,
+        new_ref_code=grail_res.new_referral_code,
         error=err,
         started_at=started_at,
         finished_at=finished_at,
