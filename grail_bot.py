@@ -141,6 +141,8 @@ class RowResult:
     handle: str | None
     follow_ok: bool
     xfollow_claimed: bool
+    ref_used: str | None
+    new_ref_code: str | None
     error: str | None
     started_at: str
     finished_at: str
