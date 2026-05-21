@@ -27,3 +27,6 @@ debug-shots/
 proxies_oxylabs*.txt
 
 test_profile_del/
+
+# Реферальный пул - персональные данные
+referrals.json
